@@ -22,12 +22,12 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		handleConnection(conn)
+		go handleConnection(conn)
 	}
 }
 func handleConnection(conn net.Conn) {
 	buf := make([]byte, 1024)
-	go conn.Read(buf)
+	conn.Read(buf)
 	_, err := conn.Write([]byte("+PONG\r\n"))
 	if err != nil {
 		fmt.Println("Error writing connection: ", err.Error())
