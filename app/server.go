@@ -27,6 +27,7 @@ func main() {
 			os.Exit(1)
 		}
 		handleConnection(conn)
+		conn, err = l.Accept()
 	}
 }
 func handleConnection(conn net.Conn) {
