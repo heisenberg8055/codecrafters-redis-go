@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 )
-
-var wg sync.WaitGroup
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -26,18 +23,17 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		wg.Add(1)
-		go handleConnection(conn, &wg)
-		wg.Wait()
+		go handleConnection(conn)
 	}
 }
-func handleConnection(conn net.Conn, wg *sync.WaitGroup) {
-	buf := make([]byte, 1024)
-	conn.Read(buf)
-	_, err := conn.Write([]byte("+PONG\r\n"))
-	if err != nil {
-		fmt.Println("Error writing connection: ", err.Error())
-		os.Exit(1)
+func handleConnection(conn net.Conn) {
+	for {
+		buf := make([]byte, 1024)
+		conn.Read(buf)
+		_, err := conn.Write([]byte("+PONG\r\n"))
+		if err != nil {
+			fmt.Println("Error writing connection: ", err.Error())
+			os.Exit(1)
+		}
 	}
-	wg.Done()
 }
