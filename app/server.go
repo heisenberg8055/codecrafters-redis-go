@@ -26,6 +26,8 @@ func main() {
 	}
 }
 func handleConnection(conn net.Conn) {
+	buf := make([]byte, 1024)
+	conn.Read(buf)
 	_, err := conn.Write([]byte("+PONG\r\n"))
 	if err != nil {
 		fmt.Println("Error writing connection: ", err.Error())
