@@ -49,10 +49,6 @@ func (v *Value) marshallString() []byte {
 
 func (v *Value) marshallBulk() []byte {
 	var bytes []byte
-	if v.Bulk == "PING" {
-		bytes = append(bytes, '+', 'P', 'O', 'N', 'G', CARRIAGERETURN, LINEFEED)
-		return bytes
-	}
 	bytes = append(bytes, BULK)
 	bytes = append(bytes, strconv.Itoa(v.Num)...)
 	bytes = append(bytes, CARRIAGERETURN, LINEFEED)
