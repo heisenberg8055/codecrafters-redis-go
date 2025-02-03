@@ -1,12 +1,17 @@
 package util
 
-import "sync"
+import (
+	"sync"
+)
 
 var Handlers = map[string]func([]Value) Value{
-	"PING": ping,
-	"ECHO": echo,
-	"SET":  set,
-	"GET":  get,
+	"PING":    ping,
+	"ECHO":    echo,
+	"SET":     set,
+	"GET":     get,
+	"HSET":    hset,
+	"HGET":    hget,
+	"HGETALL": hgetall,
 }
 
 func ping(args []Value) Value {
@@ -47,4 +52,64 @@ func get(args []Value) Value {
 		return Value{Type: "null"}
 	}
 	return Value{Type: "bulk", Bulk: value, Num: len(value)}
+}
+
+var HSETs = map[string]map[string]string{}
+var HSETsMu = sync.RWMutex{}
+
+func hset(args []Value) Value {
+	n := len(args)
+	if n < 3 || n&1 == 0 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'hset' command"}
+	} else {
+		hash := args[0].Bulk
+		HSETsMu.Lock()
+		if _, ok := HSETs[hash]; !ok {
+			HSETs[hash] = map[string]string{}
+		}
+		iter := 1
+		for i := 0; i < (n-1)/2; i++ {
+			key := args[1+i*iter].Bulk
+			iVal := args[2+i*iter].Bulk
+			HSETs[hash][key] = iVal
+			iter++
+		}
+		HSETsMu.Unlock()
+		return Value{Type: "string", Str: "OK"}
+	}
+}
+
+func hget(args []Value) Value {
+	if len(args) != 2 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'hget' command"}
+	}
+	hash := args[0].Bulk
+	key := args[1].Bulk
+	HSETsMu.Lock()
+	value, ok := HSETs[hash][key]
+	HSETsMu.Unlock()
+	if !ok {
+		return Value{Type: "null"}
+	}
+	return Value{Type: "bulk", Bulk: value}
+}
+
+func hgetall(args []Value) Value {
+	if len(args) != 1 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'hgetall' command"}
+	}
+	hash := args[0].Bulk
+	HSETsMu.Lock()
+	value, ok := HSETs[hash]
+	HSETsMu.Unlock()
+	if !ok {
+		return Value{Type: "array", Num: 0}
+	} else {
+		ans := []Value{}
+		for key, val := range value {
+			ans = append(ans, Value{Type: "bulk", Num: len(key), Bulk: key})
+			ans = append(ans, Value{Type: "bulk", Num: len(val), Bulk: val})
+		}
+		return Value{Type: "array", Num: len(value) * 2, Array: ans}
+	}
 }
