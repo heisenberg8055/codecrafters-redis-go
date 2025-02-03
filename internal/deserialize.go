@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 const (
@@ -30,6 +31,7 @@ type Value struct {
 	Num   int     // Integer
 	Bulk  string  // Bulk String
 	Array []Value // Arrays
+	TTL   time.Time
 }
 
 type Resp struct {

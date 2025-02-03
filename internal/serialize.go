@@ -34,9 +34,19 @@ func (v Value) Marshall() []byte {
 		return v.marshallNull()
 	case "error":
 		return v.marshallError()
+	case "integer":
+		return v.marshallInteger()
 	default:
 		return []byte{}
 	}
+}
+
+func (v *Value) marshallInteger() []byte {
+	var bytes []byte
+	bytes = append(bytes, INTEGER)
+	bytes = append(bytes, byte(v.Num))
+	bytes = append(bytes, CARRIAGERETURN, LINEFEED)
+	return bytes
 }
 
 func (v *Value) marshallString() []byte {
