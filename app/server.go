@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
+
+	util "github.com/codecrafters-io/redis-starter-go/internal"
 )
 
 func main() {
@@ -11,7 +14,7 @@ func main() {
 	fmt.Println("Logs from your program will appear here!")
 	// Uncomment this block to pass the first stage
 	//
-	l, err := net.Listen("tcp", "127.0.0.1:6379")
+	l, err := net.Listen("tcp", ":6379")
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
@@ -28,8 +31,30 @@ func main() {
 }
 func handleConnection(conn net.Conn) {
 	for {
-		buf := make([]byte, 1024)
-		conn.Read(buf)
-		conn.Write([]byte("+PONG\r\n"))
+		resp := util.NewResp(conn)
+		value, err := resp.Read()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if value.Type != "array" {
+			fmt.Println("Invalid Request, expected array")
+			continue
+		}
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
+		if len(value.Array) == 0 {
+			fmt.Println("Invalid Request, expected array with length > 0")
+		}
+		writer := util.NewWriter(conn)
+		handlers, ok := util.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid Command: ", command)
+			writer.Write(util.Value{Type: "string", Str: ""})
+			continue
+		}
+
+		result := handlers(args)
+		writer.Write(result)
 	}
 }
