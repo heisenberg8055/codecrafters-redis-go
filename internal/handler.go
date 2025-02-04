@@ -1,6 +1,8 @@
 package util
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +23,7 @@ var Handlers = map[string]func([]Value) Value{
 	"HGET":    hget,
 	"HGETALL": hgetall,
 	"DEL":     del,
+	"CONFIG":  config,
 }
 
 func ping(args []Value) Value {
@@ -177,4 +180,40 @@ func isExpired(t time.Time) (expired bool) {
 		return false
 	}
 	return time.Now().After(t)
+}
+
+func config(args []Value) Value {
+	n := len(args)
+	switch n {
+	case 0:
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'config' command"}
+	case 1:
+		subCommand := strings.ToUpper(args[0].Bulk)
+		if subCommand == "GET" {
+			return Value{Type: "error", Str: "ERR wrong number of arguments for 'config|get' command"}
+		} else {
+			return Value{Type: "error", Str: fmt.Sprintf("ERR unknown subcommand '%s'.", subCommand)}
+		}
+	case 2:
+		subCommand := strings.ToUpper(args[0].Bulk)
+		if subCommand == "GET" {
+			param := args[1].Bulk
+			ans := []Value{}
+			switch param {
+			case "dir":
+				val := os.Args[2]
+				ans = append(ans, Value{Type: "bulk", Bulk: "dir", Num: len("dir")})
+				ans = append(ans, Value{Type: "bulk", Bulk: val, Num: len(val)})
+				return Value{Type: "array", Num: 2, Array: ans}
+			case "dbfilename":
+				val := os.Args[4]
+				ans = append(ans, Value{Type: "bulk", Bulk: "dbfileName", Num: len("dbfileName")})
+				ans = append(ans, Value{Type: "bulk", Bulk: val, Num: len(val)})
+				return Value{Type: "array", Num: 2, Array: ans}
+			}
+		} else {
+			return Value{Type: "error", Str: fmt.Sprintf("ERR unknown subcommand '%s'.", args[0].Bulk)}
+		}
+	}
+	return Value{}
 }
