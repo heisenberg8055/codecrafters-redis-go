@@ -20,34 +20,34 @@ func main() {
 		os.Exit(1)
 	}
 	defer l.Close()
-	aof, err := util.NewAof("database.aof")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer aof.Close()
-	aof.Read(func(value util.Value) {
-		command := strings.ToUpper(value.Array[0].Bulk)
-		args := value.Array[1:]
+	// aof, err := util.NewAof("database.aof")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	// defer aof.Close()
+	// aof.Read(func(value util.Value) {
+	// 	command := strings.ToUpper(value.Array[0].Bulk)
+	// 	args := value.Array[1:]
 
-		handler, ok := util.Handlers[command]
-		if !ok {
-			fmt.Println("Invalid command: ", command)
-			return
-		}
+	// 	handler, ok := util.Handlers[command]
+	// 	if !ok {
+	// 		fmt.Println("Invalid command: ", command)
+	// 		return
+	// 	}
 
-		handler(args)
-	})
+	// 	handler(args)
+	// })
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(conn, aof)
+		go handleConnection(conn)
 	}
 }
-func handleConnection(conn net.Conn, aof *util.Aof) {
+func handleConnection(conn net.Conn) {
 	for {
 		resp := util.NewResp(conn)
 		value, err := resp.Read()
@@ -70,9 +70,6 @@ func handleConnection(conn net.Conn, aof *util.Aof) {
 			fmt.Println("Invalid Command: ", command)
 			writer.Write(util.Value{Type: "string", Str: ""})
 			continue
-		}
-		if command == "SET" || command == "HSET" {
-			aof.Write(value)
 		}
 		result := handlers(args)
 		writer.Write(result)

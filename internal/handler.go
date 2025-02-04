@@ -1,8 +1,16 @@
 package util
 
 import (
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
+
+type MapValue struct {
+	Val string
+	TTL time.Time
+}
 
 var Handlers = map[string]func([]Value) Value{
 	"PING":    ping,
@@ -26,18 +34,46 @@ func echo(args []Value) Value {
 	return Value{Type: "string", Str: args[0].Bulk}
 }
 
-var SETs = map[string]string{}
-var SETsMu = sync.RWMutex{}
+var mp = map[string]MapValue{}
+var mpMu = sync.RWMutex{}
 
 func set(args []Value) Value {
-	if len(args) != 2 {
+	n := len(args)
+	switch n {
+	case 1:
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'set' command"}
+	case 2:
+		key := args[0].Bulk
+		value := args[1].Bulk
+		mpMu.Lock()
+		mp[key] = MapValue{Val: value, TTL: time.Time{}}
+		mpMu.Unlock()
+	case 3:
+		return Value{Type: "error", Str: "Err syntax error"}
+	case 4:
+		key := args[0].Bulk
+		value := args[1].Bulk
+		flag := strings.ToUpper(args[2].Bulk)
+		ttlString := args[3].Bulk
+		ttl, err := strconv.ParseInt(ttlString, 10, 64)
+		if err != nil {
+			return Value{Type: "error", Str: "ERR value is not an integer or out of range"}
+		}
+		switch flag {
+		case "PX":
+			mpMu.Lock()
+			mp[key] = MapValue{Val: value, TTL: time.Now().Local().Add(time.Millisecond * time.Duration(ttl))}
+			mpMu.Unlock()
+		case "EX":
+			mpMu.Lock()
+			mp[key] = MapValue{Val: value, TTL: time.Now().Local().Add(time.Second * time.Duration(ttl))}
+			mpMu.Unlock()
+		default:
+			return Value{Type: "error", Str: "Err syntax error"}
+		}
+	default:
 		return Value{Type: "error", Str: "ERR wrong number of arguments for 'set' command"}
 	}
-	key := args[0].Bulk
-	value := args[1].Bulk
-	SETsMu.Lock()
-	SETs[key] = value
-	SETsMu.Unlock()
 	return Value{Type: "string", Str: "OK"}
 }
 
@@ -46,13 +82,17 @@ func get(args []Value) Value {
 		return Value{Type: "error", Str: "ERR wrong number of arguments for 'get' command"}
 	}
 	key := args[0].Bulk
-	SETsMu.Lock()
-	value, ok := SETs[key]
-	SETsMu.Unlock()
+	mpMu.Lock()
+	value, ok := mp[key]
+	mpMu.Unlock()
 	if !ok {
 		return Value{Type: "null"}
 	}
-	return Value{Type: "bulk", Bulk: value, Num: len(value)}
+	if isExpired(value.TTL) {
+		delete(mp, key)
+		return Value{Type: "null"}
+	}
+	return Value{Type: "bulk", Bulk: value.Val, Num: len(value.Val)}
 }
 
 var HSETs = map[string]map[string]string{}
@@ -121,13 +161,20 @@ func del(args []Value) Value {
 		return Value{Type: "error", Str: "Err wrong number of arguments for 'del' command"}
 	}
 	deletedKeys := 0
-	SETsMu.Lock()
-	for i := 1; i < n; i++ {
-		if _, ok := SETs[args[i].Bulk]; ok {
+	mpMu.Lock()
+	for i := 0; i < n; i++ {
+		if _, ok := mp[args[i].Bulk]; ok {
 			deletedKeys++
-			delete(SETs, args[i].Bulk)
+			delete(mp, args[i].Bulk)
 		}
 	}
-	SETsMu.Unlock()
+	mpMu.Unlock()
 	return Value{Type: "integer", Num: deletedKeys}
+}
+
+func isExpired(t time.Time) (expired bool) {
+	if t.IsZero() {
+		return false
+	}
+	return time.Now().After(t)
 }
