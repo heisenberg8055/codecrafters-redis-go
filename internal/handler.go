@@ -254,8 +254,8 @@ func keys(args []Value) Value {
 	}
 	ans := []Value{}
 	mpRdbMu.Lock()
-	for _, v := range mpRdb {
-		ans = append(ans, Value{Type: "bulk", Bulk: v.Val, Num: len(v.Val)})
+	for k := range mpRdb {
+		ans = append(ans, Value{Type: "bulk", Bulk: k, Num: len(k)})
 	}
 	mpRdbMu.Unlock()
 	return Value{Type: "array", Array: ans, Num: len(ans)}
