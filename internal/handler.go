@@ -7,11 +7,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	rdb "github.com/heisenberg8055/redis-rdb"
+	"github.com/heisenberg8055/redis-rdb/nopdecoder"
 )
 
 type MapValue struct {
 	Val string
 	TTL time.Time
+}
+
+type decoder struct {
+	db int
+	i  int
+	nopdecoder.NopDecoder
 }
 
 var Handlers = map[string]func([]Value) Value{
@@ -24,6 +33,7 @@ var Handlers = map[string]func([]Value) Value{
 	"HGETALL": hgetall,
 	"DEL":     del,
 	"CONFIG":  config,
+	"KEYS":    keys,
 }
 
 func ping(args []Value) Value {
@@ -216,4 +226,37 @@ func config(args []Value) Value {
 		}
 	}
 	return Value{}
+}
+
+var mpRdb = map[string]MapValue{}
+var mpRdbMu = sync.RWMutex{}
+
+func (p *decoder) Set(key, value []byte, expiry int64) {
+	mpRdbMu.Lock()
+	mpRdb[string(key)] = MapValue{Val: string(value), TTL: time.Time{}}
+	mpRdbMu.Unlock()
+}
+
+func keys(args []Value) Value {
+	n := len(args)
+	if n != 1 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'keys' command"}
+	}
+	dir := os.Args[2]
+	fileName := os.Args[4]
+	f, err := os.Open(dir + "/" + fileName)
+	if err != nil {
+		return Value{Type: "error", Str: err.Error()}
+	}
+	err = rdb.Decode(f, &decoder{})
+	if err != nil {
+		return Value{Type: "error", Str: err.Error()}
+	}
+	ans := []Value{}
+	mpRdbMu.Lock()
+	for _, v := range mpRdb {
+		ans = append(ans, Value{Type: "bulk", Bulk: v.Val, Num: len(v.Val)})
+	}
+	mpRdbMu.Unlock()
+	return Value{Type: "array", Array: ans, Num: len(ans)}
 }
