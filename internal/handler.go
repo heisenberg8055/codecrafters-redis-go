@@ -94,6 +94,23 @@ func get(args []Value) Value {
 	if len(args) != 1 {
 		return Value{Type: "error", Str: "ERR wrong number of arguments for 'get' command"}
 	}
+	osArgs := os.Args
+	if len(osArgs) == 5 {
+		dir := os.Args[2]
+		fileName := os.Args[4]
+		f, err := os.Open(dir + "/" + fileName)
+		if err != nil {
+			return Value{Type: "error", Str: err.Error()}
+		}
+		err = rdb.Decode(f, &decoder{})
+		if err != nil {
+			return Value{Type: "error", Str: err.Error()}
+		}
+		mpMu.Lock()
+		value := mp[args[0].Bulk]
+		mpMu.Unlock()
+		return Value{Type: "bulk", Num: len(value.Val), Bulk: value.Val}
+	}
 	key := args[0].Bulk
 	mpMu.Lock()
 	value, ok := mp[key]
@@ -228,13 +245,10 @@ func config(args []Value) Value {
 	return Value{}
 }
 
-var mpRdb = map[string]MapValue{}
-var mpRdbMu = sync.RWMutex{}
-
 func (p *decoder) Set(key, value []byte, expiry int64) {
-	mpRdbMu.Lock()
-	mpRdb[string(key)] = MapValue{Val: string(value), TTL: time.Time{}}
-	mpRdbMu.Unlock()
+	mpMu.Lock()
+	mp[string(key)] = MapValue{Val: string(value), TTL: time.Time{}}
+	mpMu.Unlock()
 }
 
 func keys(args []Value) Value {
@@ -253,10 +267,10 @@ func keys(args []Value) Value {
 		return Value{Type: "error", Str: err.Error()}
 	}
 	ans := []Value{}
-	mpRdbMu.Lock()
-	for k := range mpRdb {
+	mpMu.Lock()
+	for k := range mp {
 		ans = append(ans, Value{Type: "bulk", Bulk: k, Num: len(k)})
 	}
-	mpRdbMu.Unlock()
+	mpMu.Unlock()
 	return Value{Type: "array", Array: ans, Num: len(ans)}
 }
