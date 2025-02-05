@@ -108,6 +108,10 @@ func get(args []Value) Value {
 		}
 		mpMu.Lock()
 		value := mp[args[0].Bulk]
+		if isExpired(value.TTL) {
+			delete(mp, args[0].Bulk)
+			return Value{Type: "null"}
+		}
 		mpMu.Unlock()
 		return Value{Type: "bulk", Num: len(value.Val), Bulk: value.Val}
 	}
@@ -246,6 +250,12 @@ func config(args []Value) Value {
 }
 
 func (p *decoder) Set(key, value []byte, expiry int64) {
+	if expiry != 0 {
+		mpMu.Lock()
+		mp[string(key)] = MapValue{Val: string(value), TTL: time.Now().Local().Add(time.Duration(expiry))}
+		mpMu.Unlock()
+		return
+	}
 	mpMu.Lock()
 	mp[string(key)] = MapValue{Val: string(value), TTL: time.Time{}}
 	mpMu.Unlock()
@@ -268,7 +278,11 @@ func keys(args []Value) Value {
 	}
 	ans := []Value{}
 	mpMu.Lock()
-	for k := range mp {
+	for k, v := range mp {
+		if isExpired(v.TTL) {
+			delete(mp, k)
+			continue
+		}
 		ans = append(ans, Value{Type: "bulk", Bulk: k, Num: len(k)})
 	}
 	mpMu.Unlock()
