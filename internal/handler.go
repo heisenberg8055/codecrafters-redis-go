@@ -34,6 +34,7 @@ var Handlers = map[string]func([]Value) Value{
 	"DEL":     del,
 	"CONFIG":  config,
 	"KEYS":    keys,
+	"TYPE":    types,
 }
 
 func ping(args []Value) Value {
@@ -290,4 +291,19 @@ func keys(args []Value) Value {
 	}
 	mpMu.Unlock()
 	return Value{Type: "array", Array: ans, Num: len(ans)}
+}
+
+func types(args []Value) Value {
+	n := len(args)
+	if n == 0 {
+		return Value{Type: "error", Str: "Err wrong number of arguments for 'type' command"}
+	}
+	key := args[0].Bulk
+	mpMu.Lock()
+	_, ok := mp[key]
+	mpMu.Unlock()
+	if !ok {
+		return Value{Type: "string", Str: "none"}
+	}
+	return Value{Type: "string", Str: "string"}
 }
