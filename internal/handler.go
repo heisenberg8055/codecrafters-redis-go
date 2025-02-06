@@ -319,23 +319,31 @@ func xadd(args []Value) Value {
 	}
 	streamName := args[0].Bulk
 	streamID := args[1].Bulk
-	mpMu.Lock()
-	value, ok := mp[streamName]
-	mpMu.Unlock()
-	mapVal := make(map[string]string)
-	for i := 2; i < n; i += 2 {
-		k := args[i].Bulk
-		v := args[i+1].Bulk
-		mapVal[k] = v
-	}
-	if !ok {
-		newStream := streams.NewStream()
-		newStream.AddEntry(streamID, mapVal)
+	switch {
+	case streamID == "0-0":
+		return Value{Type: "error", Str: "ERR The ID specified in XADD must be greater than 0-0"}
+	default:
 		mpMu.Lock()
-		mp[streamName] = RedisMapValue{TTL: time.Time{}, Keytype: "stream", Stream: newStream}
+		value, ok := mp[streamName]
 		mpMu.Unlock()
-	} else {
-		value.Stream.AddEntry(streamID, mapVal)
+		mapVal := make(map[string]string)
+		for i := 2; i < n; i += 2 {
+			k := args[i].Bulk
+			v := args[i+1].Bulk
+			mapVal[k] = v
+		}
+		if !ok {
+			newStream := streams.NewStream()
+			newStream.AddEntry(streamID, mapVal)
+			mpMu.Lock()
+			mp[streamName] = RedisMapValue{TTL: time.Time{}, Keytype: "stream", Stream: newStream}
+			mpMu.Unlock()
+		} else {
+			if value.Stream.Tail.ID >= streamID {
+				return Value{Type: "error", Str: "ERR The ID specified in XADD is equal or smaller than the target stream top item"}
+			}
+			value.Stream.AddEntry(streamID, mapVal)
+		}
+		return Value{Type: "bulk", Num: len(streamID), Bulk: streamID}
 	}
-	return Value{Type: "bulk", Num: len(streamID), Bulk: streamID}
 }
