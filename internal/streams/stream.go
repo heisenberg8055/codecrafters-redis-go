@@ -8,16 +8,18 @@ type StreamEntry struct {
 }
 
 type Stream struct {
-	Head    *StreamEntry
-	Tail    *StreamEntry
-	Entries map[string]*StreamEntry
+	Head         *StreamEntry
+	Tail         *StreamEntry
+	Entries      map[string]*StreamEntry
+	LastTime     int64
+	LastSequence int64
 }
 
 func NewStream() *Stream {
-	return &Stream{Entries: make(map[string]*StreamEntry)}
+	return &Stream{Entries: make(map[string]*StreamEntry), LastTime: 0, LastSequence: -1}
 }
 
-func (s *Stream) AddEntry(id string, value map[string]string) {
+func (s *Stream) AddEntry(id string, value map[string]string, time, seq int64) {
 	entry := &StreamEntry{
 		ID:    id,
 		Value: value,
@@ -31,6 +33,8 @@ func (s *Stream) AddEntry(id string, value map[string]string) {
 		s.Tail = entry
 	}
 	s.Entries[id] = entry
+	s.LastSequence = seq
+	s.LastTime = time
 }
 
 func (s *Stream) DeleteEntry(id string) {

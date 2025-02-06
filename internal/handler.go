@@ -319,9 +319,41 @@ func xadd(args []Value) Value {
 	}
 	streamName := args[0].Bulk
 	streamID := args[1].Bulk
+	streamIdArray := strings.Split(streamID, "-")
+	streamIDTime, _ := strconv.ParseInt(streamIdArray[0], 10, 64)
+	streamIDseq, _ := strconv.ParseInt(streamIdArray[1], 10, 64)
 	switch {
 	case streamID == "0-0":
 		return Value{Type: "error", Str: "ERR The ID specified in XADD must be greater than 0-0"}
+	case streamIdArray[len(streamIdArray)-1] == "*":
+		mpMu.Lock()
+		value, ok := mp[streamName]
+		mpMu.Unlock()
+		mapVal := make(map[string]string)
+		for i := 2; i < n; i += 2 {
+			k := args[i].Bulk
+			v := args[i+1].Bulk
+			mapVal[k] = v
+		}
+		if !ok {
+			newStream := streams.NewStream()
+			switch {
+			case streamID == "0-*":
+				newStream.AddEntry("0-1", mapVal, 0, 1)
+			default:
+				newId := streamIdArray[0] + "-0"
+				newStream.AddEntry(newId, mapVal, streamIDTime, 0)
+			}
+			mpMu.Lock()
+			mp[streamName] = RedisMapValue{TTL: time.Time{}, Keytype: "stream", Stream: newStream}
+			mpMu.Unlock()
+		} else {
+			if value.Stream.Tail.ID >= streamID {
+				return Value{Type: "error", Str: "ERR The ID specified in XADD is equal or smaller than the target stream top item"}
+			} else {
+				value.Stream.AddEntry(streamIdArray[0]+fmt.Sprintf("%d", value.Stream.LastSequence+1), mapVal, streamIDTime, value.Stream.LastSequence+1)
+			}
+		}
 	default:
 		mpMu.Lock()
 		value, ok := mp[streamName]
@@ -334,7 +366,7 @@ func xadd(args []Value) Value {
 		}
 		if !ok {
 			newStream := streams.NewStream()
-			newStream.AddEntry(streamID, mapVal)
+			newStream.AddEntry(streamID, mapVal, streamIDTime, streamIDseq)
 			mpMu.Lock()
 			mp[streamName] = RedisMapValue{TTL: time.Time{}, Keytype: "stream", Stream: newStream}
 			mpMu.Unlock()
@@ -342,7 +374,7 @@ func xadd(args []Value) Value {
 			if value.Stream.Tail.ID >= streamID {
 				return Value{Type: "error", Str: "ERR The ID specified in XADD is equal or smaller than the target stream top item"}
 			}
-			value.Stream.AddEntry(streamID, mapVal)
+			value.Stream.AddEntry(streamID, mapVal, streamIDTime, streamIDseq)
 		}
 		return Value{Type: "bulk", Num: len(streamID), Bulk: streamID}
 	}
