@@ -10,4 +10,4 @@ module github.com/codecrafters-io/redis-starter-go
 
 go 1.22.4
 
-require github.com/heisenberg8055/redis-rdb v0.0.0-20250205154439-678b5f2b43d2 // indirect
+require github.com/heisenberg8055/redis-rdb v0.0.0-20250205154439-678b5f2b43d2

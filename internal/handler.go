@@ -8,13 +8,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/codecrafters-io/redis-starter-go/internal/streams"
 	rdb "github.com/heisenberg8055/redis-rdb"
 	"github.com/heisenberg8055/redis-rdb/nopdecoder"
 )
 
-type MapValue struct {
-	Val string
-	TTL time.Time
+type RedisMapValue struct {
+	Val     string
+	TTL     time.Time
+	Keytype string
+	Stream  *streams.Stream
 }
 
 type decoder struct {
@@ -35,6 +38,7 @@ var Handlers = map[string]func([]Value) Value{
 	"CONFIG":  config,
 	"KEYS":    keys,
 	"TYPE":    types,
+	"XADD":    xadd,
 }
 
 func ping(args []Value) Value {
@@ -48,7 +52,7 @@ func echo(args []Value) Value {
 	return Value{Type: "string", Str: args[0].Bulk}
 }
 
-var mp = map[string]MapValue{}
+var mp = map[string]RedisMapValue{}
 var mpMu = sync.RWMutex{}
 
 func set(args []Value) Value {
@@ -60,7 +64,7 @@ func set(args []Value) Value {
 		key := args[0].Bulk
 		value := args[1].Bulk
 		mpMu.Lock()
-		mp[key] = MapValue{Val: value, TTL: time.Time{}}
+		mp[key] = RedisMapValue{Val: value, TTL: time.Time{}, Keytype: "string"}
 		mpMu.Unlock()
 	case 3:
 		return Value{Type: "error", Str: "Err syntax error"}
@@ -76,11 +80,11 @@ func set(args []Value) Value {
 		switch flag {
 		case "PX":
 			mpMu.Lock()
-			mp[key] = MapValue{Val: value, TTL: time.Now().Local().Add(time.Millisecond * time.Duration(ttl))}
+			mp[key] = RedisMapValue{Val: value, TTL: time.Now().Local().Add(time.Millisecond * time.Duration(ttl)), Keytype: "string"}
 			mpMu.Unlock()
 		case "EX":
 			mpMu.Lock()
-			mp[key] = MapValue{Val: value, TTL: time.Now().Local().Add(time.Second * time.Duration(ttl))}
+			mp[key] = RedisMapValue{Val: value, TTL: time.Now().Local().Add(time.Second * time.Duration(ttl)), Keytype: "string"}
 			mpMu.Unlock()
 		default:
 			return Value{Type: "error", Str: "Err syntax error"}
@@ -256,12 +260,12 @@ func config(args []Value) Value {
 func (p *decoder) Set(key, value []byte, expiry int64) {
 	if expiry != 0 {
 		mpMu.Lock()
-		mp[string(key)] = MapValue{Val: string(value), TTL: time.Unix(expiry/1000, 0)}
+		mp[string(key)] = RedisMapValue{Val: string(value), TTL: time.Unix(expiry/1000, 0), Keytype: "string"}
 		mpMu.Unlock()
 		return
 	}
 	mpMu.Lock()
-	mp[string(key)] = MapValue{Val: string(value), TTL: time.Time{}}
+	mp[string(key)] = RedisMapValue{Val: string(value), TTL: time.Time{}, Keytype: "string"}
 	mpMu.Unlock()
 }
 
@@ -300,10 +304,38 @@ func types(args []Value) Value {
 	}
 	key := args[0].Bulk
 	mpMu.Lock()
-	_, ok := mp[key]
+	value, ok := mp[key]
 	mpMu.Unlock()
 	if !ok {
 		return Value{Type: "string", Str: "none"}
 	}
-	return Value{Type: "string", Str: "string"}
+	return Value{Type: "string", Str: value.Keytype}
+}
+
+func xadd(args []Value) Value {
+	n := len(args)
+	if n == 0 || n%2 == 1 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'xadd' command"}
+	}
+	streamName := args[0].Bulk
+	streamID := args[1].Bulk
+	mpMu.Lock()
+	value, ok := mp[streamName]
+	mpMu.Unlock()
+	mapVal := make(map[string]string)
+	for i := 2; i < n; i += 2 {
+		k := args[i].Bulk
+		v := args[i+1].Bulk
+		mapVal[k] = v
+	}
+	if !ok {
+		newStream := streams.NewStream()
+		newStream.AddEntry(streamID, mapVal)
+		mpMu.Lock()
+		mp[streamName] = RedisMapValue{TTL: time.Time{}, Keytype: "stream", Stream: newStream}
+		mpMu.Unlock()
+	} else {
+		value.Stream.AddEntry(streamID, mapVal)
+	}
+	return Value{Type: "bulk", Num: len(streamID), Bulk: streamID}
 }
