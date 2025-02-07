@@ -1,5 +1,7 @@
 package streams
 
+import "fmt"
+
 type StreamEntry struct {
 	ID    string
 	Value map[string]string
@@ -51,4 +53,15 @@ func (s *Stream) DeleteEntry(id string) {
 		s.Tail = entry.Prev
 	}
 	delete(s.Entries, id)
+}
+
+func (s *Stream) RangeQuery(startID, endID string) []*StreamEntry {
+	var result []*StreamEntry
+	for entry := s.Head; entry != nil; entry = entry.Next {
+		fmt.Println(entry.ID)
+		if entry.ID >= startID && entry.ID <= endID {
+			result = append(result, entry)
+		}
+	}
+	return result
 }

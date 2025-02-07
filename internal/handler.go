@@ -39,6 +39,7 @@ var Handlers = map[string]func([]Value) Value{
 	"KEYS":    keys,
 	"TYPE":    types,
 	"XADD":    xadd,
+	"XRANGE":  xrange,
 }
 
 func ping(args []Value) Value {
@@ -410,4 +411,34 @@ func xadd(args []Value) Value {
 		}
 		return Value{Type: "bulk", Num: len(streamID), Bulk: streamID}
 	}
+}
+
+func xrange(args []Value) Value {
+	n := len(args)
+	if n != 3 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'xrange' command"}
+	}
+	key := args[0].Bulk
+	startIndex := args[1].Bulk
+	endIndex := args[2].Bulk
+	mpMu.Lock()
+	value, ok := mp[key]
+	mpMu.Unlock()
+	if !ok {
+		return Value{Type: "array", Num: 0, Array: []Value{}}
+	}
+	entries := value.Stream.RangeQuery(startIndex, endIndex)
+	entryArr := []Value{}
+	for _, entry := range entries {
+		arr := []Value{}
+		arr = append(arr, Value{Type: "bulk", Num: len(entry.ID), Bulk: entry.ID})
+		values := []Value{}
+		for k, v := range entry.Value {
+			values = append(values, Value{Type: "bulk", Num: len(k), Bulk: k})
+			values = append(values, Value{Type: "bulk", Num: len(v), Bulk: v})
+		}
+		arr = append(arr, Value{Type: "array", Num: len(values), Array: values})
+		entryArr = append(entryArr, Value{Type: "array", Num: len(arr), Array: arr})
+	}
+	return Value{Type: "array", Num: len(entryArr), Array: entryArr}
 }
