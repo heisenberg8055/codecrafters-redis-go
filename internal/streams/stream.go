@@ -1,7 +1,5 @@
 package streams
 
-import "fmt"
-
 type StreamEntry struct {
 	ID    string
 	Value map[string]string
@@ -63,8 +61,17 @@ func (s *Stream) RangeQuery(startID, endID string) []*StreamEntry {
 		endID = string(rune(1114111))
 	}
 	for entry := s.Head; entry != nil; entry = entry.Next {
-		fmt.Println(entry.ID)
 		if entry.ID >= startID && entry.ID <= endID {
+			result = append(result, entry)
+		}
+	}
+	return result
+}
+
+func (s *Stream) QueryXread(startID string) []*StreamEntry {
+	var result []*StreamEntry
+	for entry := s.Head; entry != nil; entry = entry.Next {
+		if entry.ID > startID {
 			result = append(result, entry)
 		}
 	}

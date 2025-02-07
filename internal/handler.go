@@ -40,6 +40,7 @@ var Handlers = map[string]func([]Value) Value{
 	"TYPE":    types,
 	"XADD":    xadd,
 	"XRANGE":  xrange,
+	"XREAD":   xread,
 }
 
 func ping(args []Value) Value {
@@ -441,4 +442,40 @@ func xrange(args []Value) Value {
 		entryArr = append(entryArr, Value{Type: "array", Num: len(arr), Array: arr})
 	}
 	return Value{Type: "array", Num: len(entryArr), Array: entryArr}
+}
+
+func xread(args []Value) Value {
+	n := len(args)
+	if n < 3 || n&1 == 0 {
+		return Value{Type: "error", Str: "ERR wrong number of arguments for 'xread' command"}
+	}
+	if args[0].Bulk != "streams" {
+		return Value{Type: "error", Str: "Err systax error"}
+	}
+	ans := []Value{}
+	for i := 1; i <= n/2; i++ {
+		streamArr := []Value{}
+		key := args[i].Bulk
+		id := args[(n/2)+i].Bulk
+		mpMu.Lock()
+		value := mp[key]
+		mpMu.Unlock()
+		entryArr := []Value{}
+		entries := value.Stream.QueryXread(id)
+		for _, entry := range entries {
+			arr := []Value{}
+			arr = append(arr, Value{Type: "bulk", Num: len(entry.ID), Bulk: entry.ID})
+			values := []Value{}
+			for k, v := range entry.Value {
+				values = append(values, Value{Type: "bulk", Num: len(k), Bulk: k})
+				values = append(values, Value{Type: "bulk", Num: len(v), Bulk: v})
+			}
+			arr = append(arr, Value{Type: "array", Num: len(values), Array: values})
+			entryArr = append(entryArr, Value{Type: "array", Num: len(arr), Array: arr})
+		}
+		streamArr = append(streamArr, Value{Type: "bulk", Num: len(key), Bulk: key})
+		streamArr = append(streamArr, Value{Type: "array", Num: len(entryArr), Array: entryArr})
+		ans = append(ans, Value{Type: "array", Num: len(streamArr), Array: streamArr})
+	}
+	return Value{Type: "array", Num: len(ans), Array: ans}
 }
