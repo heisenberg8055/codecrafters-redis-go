@@ -57,6 +57,11 @@ func (s *Stream) DeleteEntry(id string) {
 
 func (s *Stream) RangeQuery(startID, endID string) []*StreamEntry {
 	var result []*StreamEntry
+	if startID == "-" {
+		startID = string(rune(33))
+	} else if endID == "+" {
+		endID = string(rune(1114111))
+	}
 	for entry := s.Head; entry != nil; entry = entry.Next {
 		fmt.Println(entry.ID)
 		if entry.ID >= startID && entry.ID <= endID {
