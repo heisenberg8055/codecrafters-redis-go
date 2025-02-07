@@ -332,6 +332,34 @@ func xadd(args []Value) Value {
 	switch {
 	case streamID == "0-0":
 		return Value{Type: "error", Str: "ERR The ID specified in XADD must be greater than 0-0"}
+	case streamID == "*":
+		if !ok {
+			timeUnix := time.Now().Unix() * 1000
+			newStream := streams.NewStream()
+			newId := fmt.Sprintf("%d-0", timeUnix)
+			newStream.AddEntry(newId, mapVal)
+			mpMu.Lock()
+			mp[streamName] = RedisMapValue{Stream: newStream, TTL: time.Time{}, Keytype: "stream"}
+			mpMu.Unlock()
+			return Value{Type: "bulk", Bulk: newId, Num: len(newId)}
+		} else {
+			prevSeq := value.Stream.LastSeq
+			prevTime := value.Stream.LastTime
+			prevId := value.Stream.Tail.ID
+			timeUnix := time.Now().Unix() * 1000
+			if prevId > fmt.Sprintf("%d-0", timeUnix) {
+				return Value{Type: "error", Str: "ERR The ID specified in XADD is equal or smaller than the target stream top item"}
+			}
+			if timeUnix == prevTime {
+				newId := fmt.Sprintf("%d-%d", timeUnix, prevSeq+1)
+				value.Stream.AddEntry(newId, mapVal)
+				return Value{Type: "bulk", Num: len(newId), Bulk: newId}
+			} else {
+				newId := fmt.Sprintf("%d-%d", timeUnix, 0)
+				value.Stream.AddEntry(newId, mapVal)
+				return Value{Type: "bulk", Num: len(newId), Bulk: newId}
+			}
+		}
 	case streamIdArray[len(streamIdArray)-1] == "*":
 		if !ok {
 			newStream := streams.NewStream()
