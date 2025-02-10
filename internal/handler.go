@@ -557,5 +557,6 @@ func info(args []Value) Value {
 	if len(os.Args) == 5 {
 		return Value{Type: "bulk", Num: 10, Bulk: "role:slave"}
 	}
-	return Value{Type: "bulk", Num: 11, Bulk: "role:master"}
+	masterOutput := "role:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"
+	return Value{Type: "bulk", Num: len(masterOutput), Bulk: masterOutput}
 }
