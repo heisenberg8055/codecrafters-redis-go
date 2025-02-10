@@ -27,11 +27,23 @@ func main() {
 	//
 
 	port := flag.String("port", "6379", "port of server")
-	_ = flag.String("replicaof", "", "port of master server")
+	replicaof := flag.String("replicaof", "", "port of master server")
 	_ = flag.String("dir", "", "directory of redis rdb")
 	_ = flag.String("dbfilename", "", "filename of rdb file")
 	flag.Parse()
-
+	replicaOfArr := strings.Split(*replicaof, " ")
+	fmt.Printf(replicaOfArr[0])
+	if len(replicaOfArr) > 1 {
+		go func() {
+			server := fmt.Sprintf("%v:%v", replicaOfArr[0], replicaOfArr[1])
+			connClient, err := net.Dial("tcp", server)
+			if err != nil {
+				fmt.Println(err.Error())
+				os.Exit(1)
+			}
+			fmt.Fprintf(connClient, "*1\r\n$4\r\nPING\r\n")
+		}()
+	}
 	l, err := net.Listen("tcp", fmt.Sprintf(":%v", *port))
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
