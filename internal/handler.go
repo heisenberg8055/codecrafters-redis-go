@@ -554,5 +554,8 @@ func incr(args []Value) Value {
 }
 
 func info(args []Value) Value {
+	if len(os.Args) == 5 {
+		return Value{Type: "bulk", Num: 10, Bulk: "role:slave"}
+	}
 	return Value{Type: "bulk", Num: 11, Bulk: "role:master"}
 }

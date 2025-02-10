@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -25,12 +26,13 @@ func main() {
 	// Uncomment this block to pass the first stage
 	//
 
-	osArgs := os.Args
-	var port string = "6379"
-	if len(osArgs) == 3 {
-		port = osArgs[2]
-	}
-	l, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
+	port := flag.String("port", "6379", "port of server")
+	_ = flag.String("replicaof", "", "port of master server")
+	_ = flag.String("dir", "", "directory of redis rdb")
+	_ = flag.String("dbfilename", "", "filename of rdb file")
+	flag.Parse()
+
+	l, err := net.Listen("tcp", fmt.Sprintf(":%v", *port))
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
