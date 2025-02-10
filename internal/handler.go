@@ -43,6 +43,7 @@ var Handlers = map[string]func([]Value) Value{
 	"XREAD":   xread,
 	"INCR":    incr,
 	"MULTI":   multi,
+	"EXEC":    exec,
 }
 
 func ping(args []Value) Value {
@@ -560,4 +561,11 @@ func multi(args []Value) Value {
 		return Value{Type: "error", Str: "ERR wrong number of arguments for 'multi' command"}
 	}
 	return Value{Type: "string", Str: "OK"}
+}
+
+func exec(args []Value) Value {
+	if len(args) != 0 {
+		return Value{Type: "error", Str: "Err"}
+	}
+	return Value{Type: "error", Str: "ERR EXEC without MULTI"}
 }
