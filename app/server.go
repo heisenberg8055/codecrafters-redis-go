@@ -19,8 +19,6 @@ type Transaction struct {
 	Execs   []Action
 }
 
-var transaction Transaction = Transaction{IsMulti: false, Execs: []Action{}}
-
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -60,6 +58,7 @@ func main() {
 	}
 }
 func handleConnection(conn net.Conn) {
+	var transaction Transaction = Transaction{IsMulti: false, Execs: []Action{}}
 	for {
 		resp := util.NewResp(conn)
 		value, err := resp.Read()
@@ -78,11 +77,11 @@ func handleConnection(conn net.Conn) {
 		}
 		writer := util.NewWriter(conn)
 		if command == "MULTI" {
-			res := multi(args)
+			res := multi(args, &transaction)
 			writer.Write(res)
 			continue
 		} else if command == "EXEC" {
-			res := exec(args)
+			res := exec(args, &transaction)
 			writer.Write(res)
 			continue
 		}
@@ -92,7 +91,7 @@ func handleConnection(conn net.Conn) {
 			writer.Write(util.Value{Type: "string", Str: ""})
 			continue
 		}
-		if transaction.IsMulti && isUpdateCommand(command) {
+		if transaction.IsMulti {
 			transaction.Execs = append(transaction.Execs, Action{command: command, args: args})
 			res := util.Value{Type: "string", Str: "QUEUED"}
 			writer.Write(res)
@@ -103,7 +102,7 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func multi(args []util.Value) util.Value {
+func multi(args []util.Value, transaction *Transaction) util.Value {
 	if len(args) != 0 {
 		return util.Value{Type: "error", Str: "ERR wrong number of arguments for 'multi' command"}
 	}
@@ -114,7 +113,7 @@ func multi(args []util.Value) util.Value {
 	return util.Value{Type: "error", Str: "ERR MULTI calls can not be nested"}
 }
 
-func exec(args []util.Value) util.Value {
+func exec(args []util.Value, transaction *Transaction) util.Value {
 	if len(args) != 0 {
 		return util.Value{Type: "error", Str: "Err"}
 	}
@@ -136,8 +135,4 @@ func exec(args []util.Value) util.Value {
 	transaction.IsMulti = false
 	transaction.Execs = []Action{}
 	return util.Value{Type: "array", Num: len(output), Array: output}
-}
-
-func isUpdateCommand(command string) bool {
-	return command == "SET" || command == "HSET" || command == "DEL" || command == "XADD" || command == "INCR"
 }
