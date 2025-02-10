@@ -77,12 +77,6 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Invalid Request, expected array with length > 0")
 		}
 		writer := util.NewWriter(conn)
-		handlers, ok := util.Handlers[command]
-		if !ok {
-			fmt.Println("Invalid Command: ", command)
-			writer.Write(util.Value{Type: "string", Str: ""})
-			continue
-		}
 		if command == "MULTI" {
 			res := multi(args)
 			writer.Write(res)
@@ -92,7 +86,13 @@ func handleConnection(conn net.Conn) {
 			writer.Write(res)
 			continue
 		}
-		if transaction.IsMulti {
+		handlers, ok := util.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid Command: ", command)
+			writer.Write(util.Value{Type: "string", Str: ""})
+			continue
+		}
+		if transaction.IsMulti && isUpdateCommand(command) {
 			transaction.Execs = append(transaction.Execs, Action{command: command, args: args})
 			res := util.Value{Type: "string", Str: "QUEUED"}
 			writer.Write(res)
@@ -136,4 +136,8 @@ func exec(args []util.Value) util.Value {
 	transaction.IsMulti = false
 	transaction.Execs = []Action{}
 	return util.Value{Type: "array", Num: len(output), Array: output}
+}
+
+func isUpdateCommand(command string) bool {
+	return command == "SET" || command == "HSET" || command == "DEL" || command == "XADD" || command == "INCR"
 }
