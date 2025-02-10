@@ -42,6 +42,7 @@ var Handlers = map[string]func([]Value) Value{
 	"INCR":     incr,
 	"INFO":     info,
 	"REPLCONF": replconf,
+	"PSYNC":    psync,
 }
 
 func ping(args []Value) Value {
@@ -564,4 +565,8 @@ func info(args []Value) Value {
 
 func replconf(args []Value) Value {
 	return Value{Type: "string", Str: "OK"}
+}
+
+func psync(args []Value) Value {
+	return Value{Type: "string", Str: "FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0"}
 }
