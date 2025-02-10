@@ -84,6 +84,8 @@ func handleConnection(conn net.Conn) {
 			res := exec(args, &transaction)
 			writer.Write(res)
 			continue
+		} else if command == "DISCARD" {
+			res := discard(args, &transaction)
 		}
 		handlers, ok := util.Handlers[command]
 		if !ok {
@@ -135,4 +137,16 @@ func exec(args []util.Value, transaction *Transaction) util.Value {
 	transaction.IsMulti = false
 	transaction.Execs = []Action{}
 	return util.Value{Type: "array", Num: len(output), Array: output}
+}
+
+func discard(args []util.Value, transaction *Transaction) util.Value {
+	if len(args) != 0 {
+		return util.Value{Type: "error", Str: "ERR wrong number of arguments for 'discard' command"}
+	}
+	if transaction.IsMulti {
+		transaction.IsMulti = false
+		transaction.Execs = []Action{}
+		return util.Value{Type: "string", Str: "OK"}
+	}
+	return util.Value{Type: "error", Str: "ERR DISCARD without MULTI"}
 }
