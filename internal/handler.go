@@ -21,10 +21,15 @@ type RedisMapValue struct {
 }
 
 type decoder struct {
-	db int
-	i  int
 	nopdecoder.NopDecoder
 }
+
+type Transaction struct {
+	IsMulti bool
+	Execs   []map[string][]Value
+}
+
+var transaction Transaction
 
 var Handlers = map[string]func([]Value) Value{
 	"PING":    ping,
@@ -560,12 +565,24 @@ func multi(args []Value) Value {
 	if len(args) != 0 {
 		return Value{Type: "error", Str: "ERR wrong number of arguments for 'multi' command"}
 	}
-	return Value{Type: "string", Str: "OK"}
+	if !transaction.IsMulti {
+		transaction.IsMulti = true
+		return Value{Type: "string", Str: "OK"}
+	}
+	return Value{Type: "error", Str: "ERR MULTI calls can not be nested"}
 }
 
 func exec(args []Value) Value {
 	if len(args) != 0 {
 		return Value{Type: "error", Str: "Err"}
 	}
-	return Value{Type: "error", Str: "ERR EXEC without MULTI"}
+	if !transaction.IsMulti {
+		return Value{Type: "error", Str: "ERR EXEC without MULTI"}
+	}
+	arr := transaction.Execs
+	if len(arr) == 0 {
+		transaction.IsMulti = false
+		return Value{Type: "array", Num: 0, Array: []Value{}}
+	}
+	return Value{}
 }
