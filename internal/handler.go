@@ -41,6 +41,7 @@ var Handlers = map[string]func([]Value) Value{
 	"XADD":    xadd,
 	"XRANGE":  xrange,
 	"XREAD":   xread,
+	"INCR":    incr,
 }
 
 func ping(args []Value) Value {
@@ -213,7 +214,7 @@ func del(args []Value) Value {
 		}
 	}
 	mpMu.Unlock()
-	return Value{Type: "integer", Num: deletedKeys}
+	return Value{Type: "integer", Str: strconv.Itoa(deletedKeys)}
 }
 
 func isExpired(t time.Time) (expired bool) {
@@ -532,4 +533,23 @@ func xread(args []Value) Value {
 		return Value{Type: "array", Num: len(ans), Array: ans}
 	}
 	return Value{Type: "error", Str: "Err"}
+}
+
+func incr(args []Value) Value {
+	key := args[0].Bulk
+	mpMu.Lock()
+	value, ok := mp[key]
+	mpMu.Unlock()
+	if !ok {
+		mp[key] = RedisMapValue{Keytype: "string", Val: "1"}
+		return Value{Type: "integer", Str: "1"}
+	}
+	updateNum := value.Val
+	updateCast, err := strconv.Atoi(updateNum)
+	if err != nil {
+		return Value{Type: "error", Str: "ERR value is not an integer or out of range"}
+	}
+	ans := strconv.Itoa(updateCast + 1)
+	mp[key] = RedisMapValue{Keytype: "string", Val: ans}
+	return Value{Type: "integer", Str: ans}
 }

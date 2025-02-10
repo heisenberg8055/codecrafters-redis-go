@@ -44,7 +44,7 @@ func (v Value) Marshall() []byte {
 func (v *Value) marshallInteger() []byte {
 	var bytes []byte
 	bytes = append(bytes, INTEGER)
-	bytes = append(bytes, byte(v.Num))
+	bytes = append(bytes, v.Str...)
 	bytes = append(bytes, CARRIAGERETURN, LINEFEED)
 	return bytes
 }
