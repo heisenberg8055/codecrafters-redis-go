@@ -40,6 +40,7 @@ var Handlers = map[string]func([]Value) Value{
 	"XRANGE":  xrange,
 	"XREAD":   xread,
 	"INCR":    incr,
+	"INFO":    info,
 }
 
 func ping(args []Value) Value {
@@ -550,4 +551,8 @@ func incr(args []Value) Value {
 	ans := strconv.Itoa(updateCast + 1)
 	mp[key] = RedisMapValue{Keytype: "string", Val: ans}
 	return Value{Type: "integer", Str: ans}
+}
+
+func info(args []Value) Value {
+	return Value{Type: "bulk", Num: 11, Bulk: "role:master"}
 }

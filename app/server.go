@@ -26,15 +26,11 @@ func main() {
 	//
 
 	osArgs := os.Args
-	var rePort string = ""
+	var port string = "6379"
 	if len(osArgs) == 3 {
-		rePort = osArgs[2]
+		port = osArgs[2]
 	}
-
-	if (rePort) != "" {
-		go NewReplica(rePort)
-	}
-	l, err := net.Listen("tcp", ":6379")
+	l, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
