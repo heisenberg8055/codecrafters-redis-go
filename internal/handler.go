@@ -454,9 +454,52 @@ func xread(args []Value) Value {
 	}
 	switch {
 	case args[0].Bulk == "block":
-		blockTime, _ := strconv.ParseInt(args[1].Bulk, 10, 64)
+		t, err := strconv.ParseInt(args[1].Bulk, 10, 64)
+		if err != nil {
+			return Value{Type: "error", Str: "Err invalid block time"}
+		}
 		key := args[3].Bulk
-		id := args[4].Bulk
+		var entry *streams.StreamEntry
+		timer := time.NewTimer(time.Duration(t) * time.Millisecond)
+		defer timer.Stop()
+		stream, ok := mp[key]
+		if !ok {
+			return Value{Type: "null"}
+		}
+		channel := stream.Stream.C
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			select {
+			case <-timer.C:
+				wg.Done()
+				return
+			case entri := <-channel:
+				entry = entri
+				wg.Done()
+				return
+			}
+		}()
+		wg.Wait()
+		if entry == nil {
+			return Value{Type: "null"}
+		}
+		ans := []Value{}
+		streamArr := []Value{}
+		entryArr := []Value{}
+		arr := []Value{}
+		arr = append(arr, Value{Type: "bulk", Num: len(entry.ID), Bulk: entry.ID})
+		values := []Value{}
+		for k, v := range entry.Value {
+			values = append(values, Value{Type: "bulk", Num: len(k), Bulk: k})
+			values = append(values, Value{Type: "bulk", Num: len(v), Bulk: v})
+		}
+		arr = append(arr, Value{Type: "array", Num: len(values), Array: values})
+		entryArr = append(entryArr, Value{Type: "array", Num: len(arr), Array: arr})
+		streamArr = append(streamArr, Value{Type: "bulk", Num: len(key), Bulk: key})
+		streamArr = append(streamArr, Value{Type: "array", Num: len(entryArr), Array: entryArr})
+		ans = append(ans, Value{Type: "array", Num: len(streamArr), Array: streamArr})
+		return Value{Type: "array", Num: len(ans), Array: ans}
 	case args[0].Bulk == "streams":
 		ans := []Value{}
 		for i := 1; i <= n/2; i++ {
@@ -485,5 +528,5 @@ func xread(args []Value) Value {
 		}
 		return Value{Type: "array", Num: len(ans), Array: ans}
 	}
-	return Value{}
+	return Value{Type: "error", Str: "Err"}
 }

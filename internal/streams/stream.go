@@ -13,10 +13,11 @@ type Stream struct {
 	Entries  map[string]*StreamEntry
 	LastTime int64
 	LastSeq  int64
+	C        chan *StreamEntry
 }
 
 func NewStream() *Stream {
-	return &Stream{Entries: make(map[string]*StreamEntry), LastTime: 0, LastSeq: 0}
+	return &Stream{Entries: make(map[string]*StreamEntry), LastTime: 0, LastSeq: 0, C: make(chan *StreamEntry)}
 }
 
 func (s *Stream) AddEntry(id string, value map[string]string) {
@@ -31,6 +32,10 @@ func (s *Stream) AddEntry(id string, value map[string]string) {
 		s.Tail.Next = entry
 		entry.Prev = s.Tail
 		s.Tail = entry
+	}
+	select {
+	case s.C <- entry:
+	default:
 	}
 	s.Entries[id] = entry
 }
