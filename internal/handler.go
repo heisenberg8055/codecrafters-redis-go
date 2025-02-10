@@ -461,6 +461,9 @@ func xread(args []Value) Value {
 		key := args[3].Bulk
 		var entry *streams.StreamEntry
 		timer := time.NewTimer(time.Duration(t) * time.Millisecond)
+		if t == 0 {
+			timer = time.NewTimer(time.Hour * 24 * 365)
+		}
 		defer timer.Stop()
 		stream, ok := mp[key]
 		if !ok {
