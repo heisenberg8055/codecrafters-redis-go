@@ -24,6 +24,16 @@ func main() {
 	fmt.Println("Logs from your program will appear here!")
 	// Uncomment this block to pass the first stage
 	//
+
+	osArgs := os.Args
+	var rePort string = ""
+	if len(osArgs) == 3 {
+		rePort = osArgs[2]
+	}
+
+	if (rePort) != "" {
+		go NewReplica(rePort)
+	}
 	l, err := net.Listen("tcp", ":6379")
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
