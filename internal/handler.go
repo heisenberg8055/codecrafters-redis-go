@@ -24,13 +24,6 @@ type decoder struct {
 	nopdecoder.NopDecoder
 }
 
-type Transaction struct {
-	IsMulti bool
-	Execs   []map[string][]Value
-}
-
-var transaction Transaction
-
 var Handlers = map[string]func([]Value) Value{
 	"PING":    ping,
 	"ECHO":    echo,
@@ -47,8 +40,6 @@ var Handlers = map[string]func([]Value) Value{
 	"XRANGE":  xrange,
 	"XREAD":   xread,
 	"INCR":    incr,
-	"MULTI":   multi,
-	"EXEC":    exec,
 }
 
 func ping(args []Value) Value {
@@ -559,30 +550,4 @@ func incr(args []Value) Value {
 	ans := strconv.Itoa(updateCast + 1)
 	mp[key] = RedisMapValue{Keytype: "string", Val: ans}
 	return Value{Type: "integer", Str: ans}
-}
-
-func multi(args []Value) Value {
-	if len(args) != 0 {
-		return Value{Type: "error", Str: "ERR wrong number of arguments for 'multi' command"}
-	}
-	if !transaction.IsMulti {
-		transaction.IsMulti = true
-		return Value{Type: "string", Str: "OK"}
-	}
-	return Value{Type: "error", Str: "ERR MULTI calls can not be nested"}
-}
-
-func exec(args []Value) Value {
-	if len(args) != 0 {
-		return Value{Type: "error", Str: "Err"}
-	}
-	if !transaction.IsMulti {
-		return Value{Type: "error", Str: "ERR EXEC without MULTI"}
-	}
-	arr := transaction.Execs
-	if len(arr) == 0 {
-		transaction.IsMulti = false
-		return Value{Type: "array", Num: 0, Array: []Value{}}
-	}
-	return Value{}
 }

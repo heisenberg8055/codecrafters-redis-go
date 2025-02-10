@@ -9,6 +9,18 @@ import (
 	util "github.com/codecrafters-io/redis-starter-go/internal"
 )
 
+type Action struct {
+	command string
+	args    []util.Value
+}
+
+type Transaction struct {
+	IsMulti bool
+	Execs   []Action
+}
+
+var transaction Transaction = Transaction{IsMulti: false, Execs: []Action{}}
+
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -71,7 +83,57 @@ func handleConnection(conn net.Conn) {
 			writer.Write(util.Value{Type: "string", Str: ""})
 			continue
 		}
+		if command == "MULTI" {
+			res := multi(args)
+			writer.Write(res)
+			continue
+		} else if command == "EXEC" {
+			res := exec(args)
+			writer.Write(res)
+			continue
+		}
+		if transaction.IsMulti {
+			transaction.Execs = append(transaction.Execs, Action{command: command, args: args})
+			res := util.Value{Type: "string", Str: "QUEUED"}
+			writer.Write(res)
+			continue
+		}
 		result := handlers(args)
 		writer.Write(result)
 	}
+}
+
+func multi(args []util.Value) util.Value {
+	if len(args) != 0 {
+		return util.Value{Type: "error", Str: "ERR wrong number of arguments for 'multi' command"}
+	}
+	if !transaction.IsMulti {
+		transaction.IsMulti = true
+		return util.Value{Type: "string", Str: "OK"}
+	}
+	return util.Value{Type: "error", Str: "ERR MULTI calls can not be nested"}
+}
+
+func exec(args []util.Value) util.Value {
+	if len(args) != 0 {
+		return util.Value{Type: "error", Str: "Err"}
+	}
+	if !transaction.IsMulti {
+		return util.Value{Type: "error", Str: "ERR EXEC without MULTI"}
+	}
+	queue := transaction.Execs
+	if len(queue) == 0 {
+		transaction.IsMulti = false
+		return util.Value{Type: "array", Num: 0, Array: []util.Value{}}
+	}
+	output := []util.Value{}
+	for _, iter := range queue {
+		command := iter.command
+		args := iter.args
+		handlers := util.Handlers[command]
+		output = append(output, handlers(args))
+	}
+	transaction.IsMulti = false
+	transaction.Execs = []Action{}
+	return util.Value{Type: "array", Num: len(output), Array: output}
 }
