@@ -25,22 +25,23 @@ type decoder struct {
 }
 
 var Handlers = map[string]func([]Value) Value{
-	"PING":    ping,
-	"ECHO":    echo,
-	"SET":     set,
-	"GET":     get,
-	"HSET":    hset,
-	"HGET":    hget,
-	"HGETALL": hgetall,
-	"DEL":     del,
-	"CONFIG":  config,
-	"KEYS":    keys,
-	"TYPE":    types,
-	"XADD":    xadd,
-	"XRANGE":  xrange,
-	"XREAD":   xread,
-	"INCR":    incr,
-	"INFO":    info,
+	"PING":     ping,
+	"ECHO":     echo,
+	"SET":      set,
+	"GET":      get,
+	"HSET":     hset,
+	"HGET":     hget,
+	"HGETALL":  hgetall,
+	"DEL":      del,
+	"CONFIG":   config,
+	"KEYS":     keys,
+	"TYPE":     types,
+	"XADD":     xadd,
+	"XRANGE":   xrange,
+	"XREAD":    xread,
+	"INCR":     incr,
+	"INFO":     info,
+	"REPLCONF": replconf,
 }
 
 func ping(args []Value) Value {
@@ -559,4 +560,8 @@ func info(args []Value) Value {
 	}
 	masterOutput := "role:master\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0"
 	return Value{Type: "bulk", Num: len(masterOutput), Bulk: masterOutput}
+}
+
+func replconf(args []Value) Value {
+	return Value{Type: "string", Str: "OK"}
 }
