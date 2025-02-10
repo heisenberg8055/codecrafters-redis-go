@@ -86,6 +86,8 @@ func handleConnection(conn net.Conn) {
 			continue
 		} else if command == "DISCARD" {
 			res := discard(args, &transaction)
+			writer.Write(res)
+			continue
 		}
 		handlers, ok := util.Handlers[command]
 		if !ok {
