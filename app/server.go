@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	util "github.com/codecrafters-io/redis-starter-go/internal"
 )
@@ -32,7 +33,6 @@ func main() {
 	_ = flag.String("dbfilename", "", "filename of rdb file")
 	flag.Parse()
 	replicaOfArr := strings.Split(*replicaof, " ")
-	fmt.Printf(replicaOfArr[0])
 	if len(replicaOfArr) > 1 {
 		go func() {
 			server := fmt.Sprintf("%v:%v", replicaOfArr[0], replicaOfArr[1])
@@ -41,7 +41,12 @@ func main() {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			fmt.Fprintf(connClient, "*1\r\n$4\r\nPING\r\n")
+			connClient.Write([]byte("*1\r\n$4\r\nPING\r\n"))
+			time.Sleep(time.Second * 1)
+			connClient.Write([]byte(fmt.Sprintf("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$4\r\n%v\r\n", *port)))
+			time.Sleep(time.Second * 1)
+			connClient.Write([]byte("*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"))
+			time.Sleep(time.Second * 1)
 		}()
 	}
 	l, err := net.Listen("tcp", fmt.Sprintf(":%v", *port))
