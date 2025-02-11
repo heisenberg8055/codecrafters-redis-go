@@ -21,6 +21,10 @@ type Transaction struct {
 	Execs   []Action
 }
 
+var slaves map[net.Conn]bool = make(map[net.Conn]bool)
+
+var MasterBuffer []util.Value
+
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -101,6 +105,9 @@ func handleConnection(conn net.Conn) {
 		if len(value.Array) == 0 {
 			fmt.Println("Invalid Request, expected array with length > 0")
 		}
+		if command == "SET" {
+			MasterBuffer = append(MasterBuffer, value)
+		}
 		writer := util.NewWriter(conn)
 		if command == "MULTI" {
 			res := multi(args, &transaction)
@@ -129,6 +136,15 @@ func handleConnection(conn net.Conn) {
 		}
 		result := handlers(args)
 		writer.Write(result)
+		if command == "REPLCONF" {
+			_, ok := slaves[conn]
+			if !ok {
+				slaves[conn] = true
+			}
+		}
+		if isPropagationCommand(command) {
+			go replicate()
+		}
 	}
 }
 
@@ -177,4 +193,21 @@ func discard(args []util.Value, transaction *Transaction) util.Value {
 		return util.Value{Type: "string", Str: "OK"}
 	}
 	return util.Value{Type: "error", Str: "ERR DISCARD without MULTI"}
+}
+
+func isPropagationCommand(command string) bool {
+	return command == "SET" || command == "DEL"
+}
+
+func replicate() {
+	for conn := range slaves {
+		for _, val := range MasterBuffer {
+
+			_, err := conn.Write(val.Marshall())
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		}
+	}
+	MasterBuffer = []util.Value{}
 }
