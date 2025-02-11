@@ -53,6 +53,9 @@ func (v *Value) marshallString() []byte {
 	var bytes []byte
 	bytes = append(bytes, STRING)
 	bytes = append(bytes, v.Str...)
+	if v.Bulk != "" {
+		return bytes
+	}
 	bytes = append(bytes, CARRIAGERETURN, LINEFEED)
 	return bytes
 }
